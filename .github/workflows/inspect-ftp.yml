@@ -1,24 +1,34 @@
-# Read-only: lists folders on the Hostinger FTP account to find where the website is served from.
+# Diagnostic only: shows where FTP lands and which FTP folder the live site serves.
+# Uploads two tiny marker files, checks them on the live site, then deletes them.
 name: Inspect Hostinger folders
 
 on:
   workflow_dispatch:
 
 jobs:
-  list:
+  inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: List folders (no changes made)
+      - name: Find the folder the website serves
         env:
           HOST: ${{ secrets.FTP_SERVER }}
           FTP_USER: ${{ secrets.FTP_USERNAME }}
           FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         run: |
-          ls_dir() { echo "== /$1"; curl -s --max-time 30 --list-only --user "$FTP_USER:$FTP_PASS" "ftp://$HOST/$1" | sort | head -60; }
-          ls_dir ""
-          ls_dir "public_html/"
-          ls_dir "domains/"
-          for d in $(curl -s --max-time 30 --list-only --user "$FTP_USER:$FTP_PASS" "ftp://$HOST/domains/" | grep -v '^\.'); do
-            ls_dir "domains/$d/"
-            ls_dir "domains/$d/public_html/"
+          auth=(--user "$FTP_USER:$FTP_PASS")
+          echo "== FTP starting folder"
+          curl -s -v --max-time 30 "${auth[@]}" "ftp://$HOST/" -Q "PWD" -o /dev/null 2>&1 | grep -E '^< 257' || true
+          echo "== top-level listing"
+          curl -s --max-time 30 --list-only "${auth[@]}" "ftp://$HOST/" | sort
+          tag="marker-$RANDOM$RANDOM"
+          echo "top" > top.txt; echo "public_html" > ph.txt
+          curl -s --max-time 30 "${auth[@]}" -T top.txt "ftp://$HOST/$tag-top.txt"
+          curl -s --max-time 30 "${auth[@]}" -T ph.txt "ftp://$HOST/public_html/$tag-ph.txt"
+          sleep 5
+          echo "== which marker the live site serves (200 = this is the website folder)"
+          for f in top ph; do
+            printf '%-22s ' "$f:"; curl -s --max-time 20 -o /dev/null -w '%{http_code}\n' "https://rakeshkode.co.uk/$tag-$f.txt?nc=$RANDOM"
           done
+          echo "== removing markers"
+          curl -s --max-time 30 "${auth[@]}" "ftp://$HOST/" -Q "DELE $tag-top.txt" -o /dev/null && echo "top removed"
+          curl -s --max-time 30 "${auth[@]}" "ftp://$HOST/" -Q "DELE public_html/$tag-ph.txt" -o /dev/null && echo "public_html removed"
