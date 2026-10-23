@@ -6,7 +6,7 @@
 #   FTP_USERNAME  e.g. u123456789
 #   FTP_PASSWORD  your FTP account password
 # Optional repository variable:
-#   FTP_SERVER_DIR  folder on the server for rakeshkode.co.uk; defaults to public_html/
+#   FTP_SERVER_DIR  folder on the server for rakeshkode.co.uk; defaults to /domains/rakeshkode.co.uk/public_html/
 name: Build and deploy to Hostinger
 
 on:
@@ -53,7 +53,8 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
-          server-dir: ${{ vars.FTP_SERVER_DIR || 'public_html/' }}
+          # Absolute path: this hosting account holds many sites, so never rely on the FTP start folder.
+          server-dir: ${{ vars.FTP_SERVER_DIR || '/domains/rakeshkode.co.uk/public_html/' }}
           # Upload record kept on the server; a new name forces one full upload of every file.
           state-name: .deploy-state-v2.json
           # Only when started by hand with "clean_slate" ticked; pushes never delete anything.
