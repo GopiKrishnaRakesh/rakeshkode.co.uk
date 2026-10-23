@@ -1,0 +1,24 @@
+# Read-only: lists folders on the Hostinger FTP account to find where the website is served from.
+name: Inspect Hostinger folders
+
+on:
+  workflow_dispatch:
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List folders (no changes made)
+        env:
+          HOST: ${{ secrets.FTP_SERVER }}
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          ls_dir() { echo "== /$1"; curl -s --max-time 30 --list-only --user "$FTP_USER:$FTP_PASS" "ftp://$HOST/$1" | sort | head -60; }
+          ls_dir ""
+          ls_dir "public_html/"
+          ls_dir "domains/"
+          for d in $(curl -s --max-time 30 --list-only --user "$FTP_USER:$FTP_PASS" "ftp://$HOST/domains/" | grep -v '^\.'); do
+            ls_dir "domains/$d/"
+            ls_dir "domains/$d/public_html/"
+          done
