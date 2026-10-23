@@ -84,19 +84,30 @@ def capture_year(img):
         return None
 
 
+def has_gps(img):
+    try:
+        return bool(img.getexif().get_ifd(0x8825))
+    except Exception:
+        return False
+
+
 def web_image(path, raw, out_dir, name):
     """Resize to the long edge and save as WebP; reuse the cached result when the source is unchanged."""
     CACHE.mkdir(exist_ok=True)
-    cached = CACHE / f"{short_hash(raw)}-{LONG_EDGE}-{QUALITY}.webp"
+    cached = CACHE / f"{short_hash(raw)}-{LONG_EDGE}-{QUALITY}-noexif.webp"
     meta = cached.with_suffix(".json")
     if cached.exists() and meta.exists():
         info = json.loads(meta.read_text())
     else:
         with Image.open(path) as im:
             year = capture_year(im)
+            if has_gps(im):
+                print(f"Warning: {path.relative_to(ROOT)} contains GPS location. The website copy is "
+                      "stripped, but the original in the public GitHub repo still has it.")
             im = ImageOps.exif_transpose(im).convert("RGB")
             im.thumbnail((LONG_EDGE, LONG_EDGE), Image.LANCZOS)
-            im.save(cached, "WEBP", quality=QUALITY, method=6)
+            # exif=b"" keeps camera data and location out of the published photo
+            im.save(cached, "WEBP", quality=QUALITY, method=6, exif=b"")
             info = {"w": im.width, "h": im.height, "year": year}
         meta.write_text(json.dumps(info))
     shutil.copy2(cached, out_dir / name)

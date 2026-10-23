@@ -1,11 +1,31 @@
 # Copied into each site folder by scripts/build.py (Hostinger runs LiteSpeed/Apache).
 
-# Always use HTTPS
 RewriteEngine On
+
+# Always use HTTPS
 RewriteCond %{HTTPS} off
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Hide hidden files (deploy state, .htaccess, .git) and anything that isn't part of the site
+RewriteRule (^|/)\.(?!well-known/) - [F,L]
+RewriteRule \.(md|json|py|yml|yaml|sh|log|bak|sql|env|ini|lock)$ - [F,L,NC]
+
+Options -Indexes
+ServerSignature Off
+
 <IfModule mod_headers.c>
+  Header always unset X-Powered-By
+  Header unset X-Powered-By
+
+  # Security headers
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+
   # Pages, scripts and styles: always check for a newer version
   <FilesMatch "\.(html|js|css)$">
     Header set Cache-Control "no-cache"
@@ -15,5 +35,3 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
     Header set Cache-Control "public, max-age=2592000"
   </FilesMatch>
 </IfModule>
-
-Options -Indexes
