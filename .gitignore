@@ -1,0 +1,12 @@
+.DS_Store
+dist/
+.build-cache/
+.claude/
+__pycache__/
+
+# Design references and original source files kept on this Mac only (not part of the sites)
+Creative Portfolio Website Design Inspiration*
+/*.jpg
+/*.jpeg
+/*.png
+/*.webp
