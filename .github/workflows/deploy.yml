@@ -13,6 +13,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      clean_slate:
+        description: "Delete everything in the server folder before uploading (one-off reset)"
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-hostinger
@@ -51,3 +56,5 @@ jobs:
           server-dir: ${{ vars.FTP_SERVER_DIR || 'public_html/' }}
           # Upload record kept on the server; a new name forces one full upload of every file.
           state-name: .deploy-state-v2.json
+          # Only when started by hand with "clean_slate" ticked; pushes never delete anything.
+          dangerous-clean-slate: ${{ github.event_name == 'workflow_dispatch' && inputs.clean_slate }}
