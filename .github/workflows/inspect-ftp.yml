@@ -1,5 +1,5 @@
 # Diagnostic only: shows where FTP lands and which FTP folder the live site serves.
-# Uploads two tiny marker files, checks them on the live site, then deletes them.
+# Uploads tiny marker files, checks them on the live site, then deletes them.
 name: Inspect Hostinger folders
 
 on:
@@ -16,19 +16,23 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         run: |
           auth=(--user "$FTP_USER:$FTP_PASS")
-          echo "== FTP starting folder"
-          curl -s -v --max-time 30 "${auth[@]}" "ftp://$HOST/" -Q "PWD" -o /dev/null 2>&1 | grep -E '^< 257' || true
-          echo "== top-level listing"
-          curl -s --max-time 30 --list-only "${auth[@]}" "ftp://$HOST/" | sort
-          tag="marker-$RANDOM$RANDOM"
-          echo "top" > top.txt; echo "public_html" > ph.txt
-          curl -s --max-time 30 "${auth[@]}" -T top.txt "ftp://$HOST/$tag-top.txt"
-          curl -s --max-time 30 "${auth[@]}" -T ph.txt "ftp://$HOST/public_html/$tag-ph.txt"
-          sleep 5
-          echo "== which marker the live site serves (200 = this is the website folder)"
-          for f in top ph; do
-            printf '%-22s ' "$f:"; curl -s --max-time 20 -o /dev/null -w '%{http_code}\n' "https://rakeshkode.co.uk/$tag-$f.txt?nc=$RANDOM"
+          ls_abs() { echo "== /$1"; curl -s --max-time 30 --list-only "${auth[@]}" "ftp://$HOST//$1" | sort | head -40; }
+          ls_abs ""
+          ls_abs "domains/"
+          candidates=("public_html")
+          for d in $(curl -s --max-time 30 --list-only "${auth[@]}" "ftp://$HOST//domains/" | grep -v '^\.'); do
+            ls_abs "domains/$d/public_html/"
+            candidates+=("domains/$d/public_html")
           done
-          echo "== removing markers"
-          curl -s --max-time 30 "${auth[@]}" "ftp://$HOST/" -Q "DELE $tag-top.txt" -o /dev/null && echo "top removed"
-          curl -s --max-time 30 "${auth[@]}" "ftp://$HOST/" -Q "DELE public_html/$tag-ph.txt" -o /dev/null && echo "public_html removed"
+          tag="marker-$RANDOM$RANDOM"
+          echo "== marker test (200 = the live site serves this folder)"
+          for c in "${candidates[@]}"; do
+            name="$tag-$(echo "$c" | tr '/.' '--').txt"
+            echo "$c" > m.txt
+            curl -s --max-time 30 "${auth[@]}" -T m.txt "ftp://$HOST//$c/$name" || { echo "$c: upload failed"; continue; }
+            sleep 3
+            printf '%-50s main:%s  photography-sub:%s\n' "$c" \
+              "$(curl -s --max-time 20 -o /dev/null -w '%{http_code}' "https://rakeshkode.co.uk/$name?nc=$RANDOM")" \
+              "$(curl -s --max-time 20 -o /dev/null -w '%{http_code}' "https://photography.rakeshkode.co.uk/$name?nc=$RANDOM")"
+            curl -s --max-time 30 "${auth[@]}" "ftp://$HOST//" -Q "DELE /$c/$name" -o /dev/null || echo "  (could not remove $name)"
+          done
